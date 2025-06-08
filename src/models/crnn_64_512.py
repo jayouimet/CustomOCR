@@ -45,17 +45,14 @@ class Crnn_64_512:
     batch_size = tf.shape(y_pred)[0]
     time_steps = tf.shape(y_pred)[1]
 
-    # 1) lengths
     input_len = tf.fill([batch_size], time_steps)
     label_len = tf.reduce_sum(
       tf.cast(tf.not_equal(y_true, 0), tf.int32),
       axis=1
     )
 
-    # 2) sparse labels
     sparse_labels = self.__dense_to_sparse(y_true)
 
-    # 3) compute CTC
     loss = tf.nn.ctc_loss(
       labels=sparse_labels,
       logits=y_pred,
@@ -64,13 +61,12 @@ class Crnn_64_512:
       logits_time_major=False,
       blank_index=0
     )
-    # 4) return mean
+    
     return tf.reduce_mean(loss)
   
   def __dense_to_sparse(self, labels):
     # labels: [batch, max_label_len], padded with 0=blank
     labels = tf.cast(labels, tf.int32)
-    # find non-zero positions
     indices = tf.where(tf.not_equal(labels, 0))
     values  = tf.gather_nd(labels, indices)
     dense_shape = tf.cast(tf.shape(labels), tf.int64)

@@ -2,15 +2,8 @@ from PIL import Image, ImageDraw, ImageFont
 import numpy as np
 import random
 import tensorflow as tf
-import matplotlib.pyplot as plt
-import os
-
-from keras import layers, Model
-
-from src.models.crnn_64_256 import Crnn_64_256
 from src.models.crnn_64_512 import Crnn_64_512
 
-# your character vocabulary (digits, letters, punctuation…)
 alphabet_64_256 = " ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789.,!?-"
 alphabet_64_512 = " ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789.,!?-'"
 
@@ -32,11 +25,9 @@ def make_synthetic_image(text, width=512, height=64):
 
     font = ImageFont.truetype("arial.ttf", size=random.randint(24, 32))
 
-    # compute text bounding box
     left, top, right, bottom = draw.textbbox((0, 0), text, font=font)
     w, h = right - left, bottom - top
 
-    # center the text
     x = (width - w) // 2
     y = (height - h) // 2
     draw.text((x, y), text, fill=0, font=font)
@@ -45,12 +36,10 @@ def make_synthetic_image(text, width=512, height=64):
 
 def gen():
     while True:
-        # text = "".join(random.choices(alphabet, k=random.randint(5,12)))
         text = "".join(random.choices(alphabet, k=random.randint(15, 30)))
         img, lbl = make_synthetic_image(text)
         yield img.astype(np.float32), lbl
 
-# 3) build the Dataset
 dataset = tf.data.Dataset.from_generator(
     gen,
     output_signature=(
@@ -59,14 +48,10 @@ dataset = tf.data.Dataset.from_generator(
     )
 )
 
-# 4) encode function entirely in TF
 def encode_sample(img, label):
-    # add channel dim
-    img = img[..., tf.newaxis]   # now shape=(64,256,1)
-    # split into chars
-    chars = tf.strings.unicode_split(label, 'UTF-8')  # shape=(num_chars,)
-    # lookup each char → its ID
-    label_seq = char_to_num_table.lookup(chars)       # shape=(num_chars,), dtype=int32
+    img = img[..., tf.newaxis]
+    chars = tf.strings.unicode_split(label, 'UTF-8')
+    label_seq = char_to_num_table.lookup(chars)
     return img, label_seq
 
 dataset = (
@@ -81,9 +66,7 @@ dataset = (
 )
 
 def decode_prediction(logits):
-    # logits: (time, num_chars+1)
     pred = tf.argmax(logits, axis=-1).numpy()
-    # collapse repeats and remove blanks (0)
     chars = []
     prev = 0
     for p in pred:
@@ -101,5 +84,5 @@ img_np, txt = make_synthetic_image("Hey, what's new today with you?")
 im = Image.fromarray((img_np * 255).astype(np.uint8))
 im.show()
 
-logits = model.predict(img_np[None,...,None])  # shape (1,time,classes)
+logits = model.predict(img_np[None,...,None])
 print("Decoded:", decode_prediction(logits[0]))
